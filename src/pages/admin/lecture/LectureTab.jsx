@@ -29,8 +29,9 @@ import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
+import API_BASE_URL from "@/config/api";
 
-const MEDIA_API = "http://localhost:8080/api/v1/media";
+const MEDIA_API = `${API_BASE_URL}/api/v1/media`;
 
 const LectureTab = () => {
   const [lectureTitle, setLectureTitle] = useState("");
@@ -219,9 +220,7 @@ const LectureTab = () => {
 
         <div className="flex items-center space-x-2 my-5">
           <Switch checked={isTest} onCheckedChange={setIsTest} id="test-mode" />
-          <Label htmlFor="test-mode">
-            This is a test 
-          </Label>
+          <Label htmlFor="test-mode">This is a test</Label>
         </div>
 
         <Tabs
@@ -233,7 +232,6 @@ const LectureTab = () => {
               Test Configuration
             </TabsTrigger>
           </TabsList>
-
 
           <TabsContent value="test">
             <div className="space-y-4">

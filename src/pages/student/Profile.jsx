@@ -11,20 +11,23 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Loader2, Calendar } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Course } from "./Course";
 import { useNavigate } from "react-router-dom";
 import {
   useLoadUserQuery,
   useUpdateUserMutation,
 } from "@/features/api/authApi";
-import { useEffect } from "react";
 import { toast } from "sonner";
+import API_BASE_URL from "@/config/api";
+import axios from "axios";
 
 export const Profile = () => {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [profilePhoto, setProfilePhoto] = useState("");
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const { data, isLoading, refetch } = useLoadUserQuery();
   const [
     updateUser,
@@ -44,18 +47,52 @@ export const Profile = () => {
     }
   }, [data]);
 
-  const onChangeHandler = (e) => {
+  const onChangeHandler = async (e) => {
     const file = e.target.files?.[0];
-    if (file) setProfilePhoto(file);
+    if (file) {
+      setProfilePhoto(file);
+
+      // Create file preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        document.querySelector(".profile-preview").src = reader.result;
+      };
+      reader.readAsDataURL(file);
+
+      try {
+        setUploadingPhoto(true);
+        // Upload to Cloudinary directly
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await axios.post(
+          `${API_BASE_URL}/api/v1/media/upload-video`,
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        if (response.data.success) {
+          setPhotoUrl(response.data.data.secure_url);
+          toast.success("Photo uploaded successfully");
+        }
+      } catch (error) {
+        console.error("Error uploading photo:", error);
+        toast.error("Failed to upload photo");
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }
   };
 
   const updateUserHandler = async () => {
-    const formData = new FormData();
-    formData.append("name", name);
-    if (profilePhoto) {
-      formData.append("profilePhoto", profilePhoto);
-    }
-    await updateUser(formData);
+    await updateUser({
+      name,
+      photoUrl,
+    });
   };
 
   const handleAttendanceClick = () => {
@@ -101,6 +138,7 @@ export const Profile = () => {
         <div className="flex flex-col items-center">
           <Avatar className="h-24 w-24 md:h-32 md:w-32 mb-4">
             <AvatarImage
+              className="profile-preview"
               src={user?.photoUrl || "https://github.com/shadcn.png"}
               alt="Profile"
             />
@@ -173,16 +211,27 @@ export const Profile = () => {
 
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label>Profile Photo</Label>
-                  <input
-                    onChange={onChangeHandler}
-                    type="file"
-                    accept="image/*"
-                    className="col-span-3"
-                  />
+                  <div className="col-span-3">
+                    <input
+                      onChange={onChangeHandler}
+                      type="file"
+                      accept="image/*"
+                      className="w-full"
+                      disabled={uploadingPhoto}
+                    />
+                    {uploadingPhoto && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Uploading...
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
-                <Button disabled={updateLoading} onClick={updateUserHandler}>
+                <Button
+                  disabled={updateLoading || uploadingPhoto}
+                  onClick={updateUserHandler}
+                >
                   {updateLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

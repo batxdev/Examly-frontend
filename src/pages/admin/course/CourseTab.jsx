@@ -28,6 +28,8 @@ import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
+import API_BASE_URL from "@/config/api";
+import axios from "axios";
 
 const CourseTab = () => {
   const [input, setInput] = useState({
@@ -68,6 +70,8 @@ const CourseTab = () => {
   }, [courseByIdData]);
 
   const [previewThumbnail, setPreviewThumbnail] = useState("");
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const [courseThumbnailUrl, setCourseThumbnailUrl] = useState("");
   const navigate = useNavigate();
 
   const [editCourse, { data, isLoading, isSuccess, error }] =
@@ -85,26 +89,58 @@ const CourseTab = () => {
     setInput({ ...input, courseLevel: value });
   };
   // get file
-  const selectThumbnail = (e) => {
+  const selectThumbnail = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       setInput({ ...input, courseThumbnail: file });
       const fileReader = new FileReader();
       fileReader.onloadend = () => setPreviewThumbnail(fileReader.result);
       fileReader.readAsDataURL(file);
+
+      try {
+        setUploadingThumbnail(true);
+        // Upload to Cloudinary directly
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await axios.post(
+          `${API_BASE_URL}/api/v1/media/upload-video`,
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        if (response.data.success) {
+          setCourseThumbnailUrl(response.data.data.secure_url);
+          toast.success("Thumbnail uploaded successfully");
+        }
+      } catch (error) {
+        console.error("Error uploading thumbnail:", error);
+        toast.error("Failed to upload thumbnail");
+      } finally {
+        setUploadingThumbnail(false);
+      }
     }
   };
 
   const updateCourseHandler = async () => {
-    const formData = new FormData();
-    formData.append("courseTitle", input.courseTitle);
-    formData.append("subTitle", input.subTitle);
-    formData.append("description", input.description);
-    formData.append("category", input.category);
-    formData.append("courseLevel", input.courseLevel);
-    formData.append("coursePrice", input.coursePrice);
-    formData.append("courseThumbnail", input.courseThumbnail);
-    formData.append("isFree", input.isFree);
+    const formData = {
+      courseTitle: input.courseTitle,
+      subTitle: input.subTitle,
+      description: input.description,
+      category: input.category,
+      courseLevel: input.courseLevel,
+      coursePrice: input.coursePrice,
+      isFree: input.isFree.toString(),
+    };
+
+    // Only add thumbnail URL if it was uploaded
+    if (courseThumbnailUrl) {
+      formData.courseThumbnailUrl = courseThumbnailUrl;
+    }
 
     await editCourse({ formData, courseId });
   };
@@ -266,21 +302,30 @@ const CourseTab = () => {
               </div>
             </div>
           </div>
-          <div>
-            <Label>Test Thumbnail</Label>
-            <Input
-              type="file"
-              onChange={selectThumbnail}
-              accept="image/*"
-              className="w-fit"
-            />
-            {previewThumbnail && (
-              <img
-                src={previewThumbnail}
-                className="e-64 my-2"
-                alt="Course Thumbnail"
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>Thumbnail</Label>
+              <Input
+                onChange={selectThumbnail}
+                type="file"
+                accept="image/*"
+                disabled={uploadingThumbnail}
               />
-            )}
+              {uploadingThumbnail && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Uploading thumbnail...
+                </p>
+              )}
+            </div>
+            <div>
+              {previewThumbnail && (
+                <img
+                  src={previewThumbnail}
+                  className="e-64 my-2"
+                  alt="Course Thumbnail"
+                />
+              )}
+            </div>
           </div>
           <div>
             <Button onClick={() => navigate("/admin/course")} variant="outline">
