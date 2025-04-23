@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import API_BASE_URL from "../../config/api";
 
-const CHEATING_API = "http://localhost:8080/api";
+const CHEATING_API = `${API_BASE_URL}/api`;
 
 export const cheatingApi = createApi({
   reducerPath: "cheatingApi",

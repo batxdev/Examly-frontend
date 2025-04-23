@@ -65,7 +65,7 @@ const TestProgress = () => {
 
   // Effect to handle finding and setting the current test
   useEffect(() => {
-    if (isLoading || isError || !data) return;
+    if (isLoading || isError || !data?.data) return;
 
     // Find the test with the matching ID from URL
     if (testIdFromUrl && data?.data?.courseDetails?.lectures) {
@@ -101,13 +101,15 @@ const TestProgress = () => {
   };
 
   if (isLoading) return <p>Loading...</p>;
-  if (isError) return <p>Failed to load test details</p>;
+  if (isError || !data?.data) return <p>Failed to load test details</p>;
 
-  const { courseDetails, progress } = data.data;
-  const { courseTitle } = courseDetails;
+  const { courseDetails = {}, progress = [] } = data.data || {};
+  const { courseTitle = "Course" } = courseDetails || {};
 
   // Filter only tests (lectures with isTest=true)
-  const tests = courseDetails.lectures.filter((lecture) => lecture.isTest);
+  const tests = (courseDetails?.lectures || []).filter(
+    (lecture) => lecture.isTest
+  );
 
   const isTestCompleted = (testId) => {
     return progress.some((prog) => prog.lectureId === testId && prog.viewed);

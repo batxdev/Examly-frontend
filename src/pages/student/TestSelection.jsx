@@ -54,7 +54,7 @@ const TestSelection = () => {
       </div>
     );
 
-  if (isError)
+  if (isError || !data?.data)
     return (
       <div className="max-w-4xl mx-auto my-12 text-center">
         <FileText className="h-16 w-16 mx-auto text-gray-400 mb-4" />
@@ -66,11 +66,13 @@ const TestSelection = () => {
       </div>
     );
 
-  const { courseDetails, progress } = data.data;
-  const { courseTitle } = courseDetails;
+  const { courseDetails = {}, progress = [] } = data.data || {};
+  const { courseTitle = "Course" } = courseDetails || {};
 
   // Filter only tests (lectures with isTest=true)
-  const allTests = courseDetails.lectures.filter((lecture) => lecture.isTest);
+  const allTests = (courseDetails?.lectures || []).filter(
+    (lecture) => lecture.isTest
+  );
 
   // Filter tests based on search query
   const filteredTests = allTests.filter((test) =>
