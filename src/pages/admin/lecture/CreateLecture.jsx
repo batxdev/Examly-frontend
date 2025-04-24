@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   useCreateLectureMutation,
-  useGetCourseLectureQuery,
+  useGetLecturesQuery,
 } from "@/features/api/courseApi";
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -17,31 +17,39 @@ const CreateLecture = () => {
   const courseId = params.courseId;
   const navigate = useNavigate();
 
-  const [createLecture, { data, isLoading, isSuccess, error }] =
+  const [createLecture, { isLoading, isSuccess, error }] =
     useCreateLectureMutation();
 
   const {
-    data: lectureData,
+    data: lectures,
     isLoading: lectureLoading,
     isError: lectureError,
     refetch,
-  } = useGetCourseLectureQuery(courseId);
+  } = useGetLecturesQuery(courseId);
 
   const createLectureHandler = async () => {
-    await createLecture({ lectureTitle, courseId });
+    if (!lectureTitle.trim()) {
+      toast.error("Please enter a lecture title");
+      return;
+    }
+
+    await createLecture({
+      courseId,
+      formData: { lectureTitle },
+    });
   };
 
   useEffect(() => {
     if (isSuccess) {
       refetch();
-      toast.success(data.message);
+      setLectureTitle(""); // Clear input after success
+      toast.success("Lecture created successfully");
     }
     if (error) {
-      toast.error(error.data.message);
+      const errorMessage = error.data?.message || "Failed to create lecture";
+      toast.error(errorMessage);
     }
-  }, [isSuccess, error]);
-
-  console.log(lectureData);
+  }, [isSuccess, error, refetch]);
 
   return (
     <div className="flex-1 mx-10">
@@ -50,8 +58,7 @@ const CreateLecture = () => {
           Let's add lectures, add some basic details for your new lecture
         </h1>
         <p className="text-sm">
-          Lorem, ipsum dolor sit amet consectetur adipisicing elit. Possimus,
-          laborum!
+          Create individual lecture items for your test content
         </p>
       </div>
       <div className="space-y-4">
@@ -87,10 +94,10 @@ const CreateLecture = () => {
             <p>Loading lectures...</p>
           ) : lectureError ? (
             <p>Failed to load lectures.</p>
-          ) : lectureData.lectures.length === 0 ? (
-            <p>No lectures availabe</p>
+          ) : !lectures || lectures.length === 0 ? (
+            <p>No lectures available</p>
           ) : (
-            lectureData.lectures.map((lecture, index) => (
+            lectures.map((lecture, index) => (
               <Lecture
                 key={lecture._id}
                 lecture={lecture}

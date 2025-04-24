@@ -20,9 +20,9 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
-  useEditCourseMutation,
-  useGetCourseByIdQuery,
-  usePublishCourseMutation,
+  useUpdateCourseMutation,
+  useGetCourseQuery,
+  useTogglePublishStatusMutation,
 } from "@/features/api/courseApi";
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
@@ -46,36 +46,35 @@ const CourseTab = () => {
   const params = useParams();
   const courseId = params.courseId;
   const {
-    data: courseByIdData,
-    isLoading: courseByIdLoading,
+    data: course,
+    isLoading: courseLoading,
     refetch,
-  } = useGetCourseByIdQuery(courseId);
+  } = useGetCourseQuery(courseId);
 
-  const [publishCourse, {}] = usePublishCourseMutation();
+  const [togglePublish] = useTogglePublishStatusMutation();
 
   useEffect(() => {
-    if (courseByIdData?.course) {
-      const course = courseByIdData?.course;
+    if (course) {
       setInput({
-        courseTitle: course.courseTitle,
-        subTitle: course.subTitle,
-        description: course.description,
-        category: course.category,
-        courseLevel: course.courseLevel,
-        coursePrice: course.coursePrice,
+        courseTitle: course.courseTitle || "",
+        subTitle: course.subTitle || "",
+        description: course.description || "",
+        category: course.category || "",
+        courseLevel: course.courseLevel || "",
+        coursePrice: course.coursePrice || "",
         courseThumbnail: "",
         isFree: course.isFree || false,
       });
     }
-  }, [courseByIdData]);
+  }, [course]);
 
   const [previewThumbnail, setPreviewThumbnail] = useState("");
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
   const [courseThumbnailUrl, setCourseThumbnailUrl] = useState("");
   const navigate = useNavigate();
 
-  const [editCourse, { data, isLoading, isSuccess, error }] =
-    useEditCourseMutation();
+  const [updateCourse, { isLoading, isSuccess, error }] =
+    useUpdateCourseMutation();
 
   const changeEventHandler = (e) => {
     const { name, value } = e.target;
@@ -127,7 +126,8 @@ const CourseTab = () => {
   };
 
   const updateCourseHandler = async () => {
-    const formData = {
+    // Prepare data for API
+    const data = {
       courseTitle: input.courseTitle,
       subTitle: input.subTitle,
       description: input.description,
@@ -139,21 +139,27 @@ const CourseTab = () => {
 
     // Only add thumbnail URL if it was uploaded
     if (courseThumbnailUrl) {
-      formData.courseThumbnailUrl = courseThumbnailUrl;
+      data.courseThumbnailUrl = courseThumbnailUrl;
     }
 
-    await editCourse({ formData, courseId });
+    await updateCourse({ id: courseId, data });
   };
 
+  // Toggle course published status
   const publishStatusHandler = async (action) => {
     try {
-      const response = await publishCourse({ courseId, query: action });
-      if (response.data) {
-        refetch();
-        toast.success(response.data.message);
-      }
+      // Use the specific toggle publish mutation
+      await togglePublish({
+        courseId,
+        publish: action === "true",
+      });
+
+      refetch();
+      toast.success(
+        `Course ${action === "true" ? "published" : "unpublished"} successfully`
+      );
     } catch (error) {
-      toast.error("Failed to publish or unpublish course");
+      toast.error("Failed to update course status");
     }
   };
 
@@ -163,14 +169,16 @@ const CourseTab = () => {
 
   useEffect(() => {
     if (isSuccess) {
-      toast.success(data.message || "Course update.");
+      toast.success("Course updated successfully");
+      refetch();
     }
     if (error) {
-      toast.error(error.data.message || "Failed to update course");
+      console.error("Error updating course:", error);
+      toast.error("Failed to update course");
     }
-  }, [isSuccess, error]);
+  }, [isSuccess, error, refetch]);
 
-  if (courseByIdLoading) return <h1>Loading...</h1>;
+  if (courseLoading) return <h1>Loading...</h1>;
 
   return (
     <Card>
@@ -183,15 +191,13 @@ const CourseTab = () => {
         </div>
         <div className="space-x-2">
           <Button
-            disabled={courseByIdData?.course.lectures.length === 0}
+            disabled={!course || course.lectures?.length === 0}
             variant="outline"
             onClick={() =>
-              publishStatusHandler(
-                courseByIdData?.course.isPublished ? "false" : "true"
-              )
+              publishStatusHandler(course?.isPublished ? "false" : "true")
             }
           >
-            {courseByIdData?.course.isPublished ? "Unpublished" : "Publish"}
+            {course?.isPublished ? "Unpublish" : "Publish"}
           </Button>
           <Button>Remove Test</Button>
         </div>
@@ -248,100 +254,89 @@ const CourseTab = () => {
                     </SelectItem>
                     <SelectItem value="Javascript">Javascript</SelectItem>
                     <SelectItem value="Python">Python</SelectItem>
-                    <SelectItem value="Docker">Docker</SelectItem>
-                    <SelectItem value="MongoDB">MongoDB</SelectItem>
-                    <SelectItem value="HTML">HTML</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Test Level</Label>
+              <Label>Level</Label>
               <Select
                 defaultValue={input.courseLevel}
                 onValueChange={selectCourseLevel}
               >
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select a test level" />
+                  <SelectValue placeholder="Select a level" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectLabel>Test Level</SelectLabel>
+                    <SelectLabel>Level</SelectLabel>
                     <SelectItem value="Beginner">Beginner</SelectItem>
-                    <SelectItem value="Medium">Medium</SelectItem>
-                    <SelectItem value="Advance">Advance</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                    <SelectItem value="All">All Level</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="grid gap-4 grid-cols-2">
             <div>
-              <Label>Price in (INR)</Label>
+              <Label>Price</Label>
               <Input
                 type="number"
                 name="coursePrice"
                 value={input.coursePrice}
                 onChange={changeEventHandler}
-                placeholder="199"
-                className="w-fit"
+                placeholder="Ex. 499"
                 disabled={input.isFree}
               />
             </div>
-            <div className="flex flex-col">
-              <Label htmlFor="free-test" className="mb-2">
-                Free Test
-              </Label>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="free-test"
-                  checked={input.isFree}
-                  onCheckedChange={handleFreeToggle}
-                />
-                <span className="text-sm text-gray-600">
-                  {input.isFree ? "Free" : "Paid"}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Thumbnail</Label>
-              <Input
-                onChange={selectThumbnail}
-                type="file"
-                accept="image/*"
-                disabled={uploadingThumbnail}
+            <div className="flex items-center space-x-2 pt-8">
+              <Switch
+                id="is-free"
+                checked={input.isFree}
+                onCheckedChange={handleFreeToggle}
               />
-              {uploadingThumbnail && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Uploading thumbnail...
-                </p>
-              )}
-            </div>
-            <div>
-              {previewThumbnail && (
-                <img
-                  src={previewThumbnail}
-                  className="e-64 my-2"
-                  alt="Course Thumbnail"
-                />
-              )}
+              <Label htmlFor="is-free">Free Test</Label>
             </div>
           </div>
           <div>
-            <Button onClick={() => navigate("/admin/course")} variant="outline">
-              Cancel
-            </Button>
-            <Button disabled={isLoading} onClick={updateCourseHandler}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Please wait
-                </>
-              ) : (
-                "Save"
-              )}
-            </Button>
+            <Label>Thumbnail</Label>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={selectThumbnail}
+              className="mt-2"
+            />
+            {uploadingThumbnail && (
+              <div className="mt-2 flex items-center">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <span className="text-sm">Uploading thumbnail...</span>
+              </div>
+            )}
+            {previewThumbnail && (
+              <div className="mt-4">
+                <img
+                  src={previewThumbnail}
+                  alt="Thumbnail Preview"
+                  className="max-w-xs rounded-md"
+                />
+              </div>
+            )}
           </div>
+          <Button
+            onClick={updateCourseHandler}
+            disabled={isLoading || uploadingThumbnail}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Updating...
+              </>
+            ) : (
+              "Save Test"
+            )}
+          </Button>
         </div>
       </CardContent>
     </Card>

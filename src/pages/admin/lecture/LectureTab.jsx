@@ -20,14 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  useEditLectureMutation,
-  useGetLectureByIdQuery,
-  useRemoveLectureMutation,
+  useUpdateLectureMutation,
+  useGetLectureQuery,
+  useDeleteLectureMutation,
 } from "@/features/api/courseApi";
 import axios from "axios";
 import { Loader2, PlusCircle, Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import API_BASE_URL from "@/config/api";
 
@@ -35,26 +35,29 @@ const MEDIA_API = `${API_BASE_URL}/api/v1/media`;
 
 const LectureTab = () => {
   const [lectureTitle, setLectureTitle] = useState("");
-  const [uploadVideInfo, setUploadVideoInfo] = useState(null);
+  const [uploadVideoInfo, setUploadVideoInfo] = useState(null);
   const [isFree, setIsFree] = useState(false);
   const [mediaProgress, setMediaProgress] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [btnDisable, setBtnDisable] = useState(true);
+  const [btnDisable, setBtnDisable] = useState(false);
   const [isTest, setIsTest] = useState(false);
   const [testDuration, setTestDuration] = useState(60); // default 60 minutes
   const [testInstructions, setTestInstructions] = useState("");
   const [questions, setQuestions] = useState([]);
   const params = useParams();
+  const navigate = useNavigate();
   const { courseId, lectureId } = params;
 
-  const { data: lectureData } = useGetLectureByIdQuery(lectureId);
-  const lecture = lectureData?.lecture;
+  const { data: lecture, isLoading: lectureLoading } = useGetLectureQuery({
+    courseId,
+    lectureId,
+  });
 
   useEffect(() => {
     if (lecture) {
-      setLectureTitle(lecture.lectureTitle);
-      setIsFree(lecture.isPreviewFree);
-      setUploadVideoInfo(lecture.videoInfo);
+      setLectureTitle(lecture.lectureTitle || "");
+      setIsFree(lecture.isPreviewFree || false);
+      setUploadVideoInfo(lecture.videoInfo || null);
       setIsTest(lecture.isTest || false);
       setTestDuration(lecture.testDuration || 60);
       setTestInstructions(lecture.testInstructions || "");
@@ -62,12 +65,14 @@ const LectureTab = () => {
     }
   }, [lecture]);
 
-  const [edtiLecture, { data, isLoading, error, isSuccess }] =
-    useEditLectureMutation();
   const [
-    removeLecture,
-    { data: removeData, isLoading: removeLoading, isSuccess: removeSuccess },
-  ] = useRemoveLectureMutation();
+    updateLecture,
+    { isLoading: updateLoading, error: updateError, isSuccess: updateSuccess },
+  ] = useUpdateLectureMutation();
+  const [
+    deleteLecture,
+    { isLoading: deleteLoading, error: deleteError, isSuccess: deleteSuccess },
+  ] = useDeleteLectureMutation();
 
   const fileChangeHandler = async (e) => {
     const file = e.target.files[0];
@@ -83,17 +88,17 @@ const LectureTab = () => {
         });
 
         if (res.data.success) {
-          console.log(res);
           setUploadVideoInfo({
             videoUrl: res.data.data.url,
             publicId: res.data.data.public_id,
           });
           setBtnDisable(false);
-          toast.success(res.data.message);
+          toast.success(res.data.message || "Video uploaded successfully");
         }
       } catch (error) {
-        console.log(error);
-        toast.error("video upload failed");
+        console.error("Error uploading video:", error);
+        toast.error("Video upload failed");
+        setBtnDisable(true);
       } finally {
         setMediaProgress(false);
       }
@@ -106,21 +111,36 @@ const LectureTab = () => {
       return;
     }
 
-    await edtiLecture({
+    // Create formData object with correct structure
+    const formData = {
       lectureTitle,
-      videoInfo: !isTest ? uploadVideInfo : null,
+      videoInfo: !isTest ? uploadVideoInfo : null,
       isPreviewFree: isFree,
-      courseId,
-      lectureId,
       isTest,
       testDuration: isTest ? testDuration : null,
       testInstructions: isTest ? testInstructions : null,
       questions: isTest ? questions : [],
-    });
+    };
+
+    try {
+      await updateLecture({
+        courseId,
+        lectureId,
+        formData,
+      });
+    } catch (err) {
+      console.error("Error updating lecture:", err);
+    }
   };
 
   const removeLectureHandler = async () => {
-    await removeLecture(lectureId);
+    if (window.confirm("Are you sure you want to delete this lecture?")) {
+      try {
+        await deleteLecture({ lectureId });
+      } catch (err) {
+        console.error("Error deleting lecture:", err);
+      }
+    }
   };
 
   // Question management functions
@@ -167,42 +187,49 @@ const LectureTab = () => {
   };
 
   useEffect(() => {
-    if (isSuccess) {
-      toast.success(data.message);
+    if (updateSuccess) {
+      toast.success("Lecture updated successfully");
+      navigate(`/admin/course/${courseId}`);
     }
-    if (error) {
-      toast.error(error.data.message);
+    if (updateError) {
+      toast.error(updateError?.data?.message || "Failed to update lecture");
     }
-  }, [isSuccess, error]);
+  }, [updateSuccess, updateError, navigate, courseId]);
 
   useEffect(() => {
-    if (removeSuccess) {
-      toast.success(removeData.message);
+    if (deleteSuccess) {
+      toast.success("Lecture deleted successfully");
+      navigate(`/admin/course/${courseId}`);
     }
-  }, [removeSuccess]);
+    if (deleteError) {
+      toast.error(deleteError?.data?.message || "Failed to delete lecture");
+    }
+  }, [deleteSuccess, deleteError, navigate, courseId]);
 
   return (
     <Card>
       <CardHeader className="flex justify-between">
         <div>
-          <CardTitle>Edit Test</CardTitle>
+          <CardTitle>{isTest ? "Edit Test" : "Edit Lecture"}</CardTitle>
           <CardDescription>
             Make changes and click save when done.
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
           <Button
-            disbaled={removeLoading}
+            disabled={deleteLoading}
             variant="destructive"
             onClick={removeLectureHandler}
           >
-            {removeLoading ? (
+            {deleteLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Please wait
               </>
-            ) : (
+            ) : isTest ? (
               "Remove Test"
+            ) : (
+              "Remove Lecture"
             )}
           </Button>
         </div>
@@ -228,10 +255,70 @@ const LectureTab = () => {
           value={isTest ? "test" : "video"}
         >
           <TabsList className="mb-4">
+            <TabsTrigger value="video" disabled={isTest}>
+              Video
+            </TabsTrigger>
             <TabsTrigger value="test" disabled={!isTest}>
               Test Configuration
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="video">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="free-preview"
+                  checked={isFree}
+                  onCheckedChange={setIsFree}
+                />
+                <Label htmlFor="free-preview">Free Preview</Label>
+              </div>
+
+              {!uploadVideoInfo ? (
+                <div className="flex flex-col gap-2">
+                  <Label>Upload Video</Label>
+                  <Input
+                    type="file"
+                    accept="video/*"
+                    onChange={fileChangeHandler}
+                  />
+                  {mediaProgress && (
+                    <Progress value={uploadProgress} className="w-full" />
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Label>Current Video</Label>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 p-2 border rounded">
+                      {uploadVideoInfo.videoUrl ? (
+                        <a
+                          href={uploadVideoInfo.videoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-500 hover:underline truncate block"
+                        >
+                          {uploadVideoInfo.videoUrl.split("/").pop()}
+                        </a>
+                      ) : (
+                        "No video file"
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setUploadVideoInfo(null);
+                        setBtnDisable(true);
+                      }}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
           <TabsContent value="test">
             <div className="space-y-4">
@@ -404,14 +491,19 @@ const LectureTab = () => {
         </Tabs>
 
         <div className="mt-4">
-          <Button disabled={isLoading} onClick={editLectureHandler}>
-            {isLoading ? (
+          <Button
+            disabled={(!isTest && !uploadVideoInfo) || updateLoading}
+            onClick={editLectureHandler}
+          >
+            {updateLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Please wait
               </>
-            ) : (
+            ) : isTest ? (
               "Update Test"
+            ) : (
+              "Update Lecture"
             )}
           </Button>
         </div>
