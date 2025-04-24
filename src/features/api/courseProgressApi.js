@@ -1,5 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import API_BASE_URL from "../../config/api";
+import API_BASE_URL, { prepareHeadersWithAuth } from "../../config/api";
 
 const COURSE_PROGRESS_API = `${API_BASE_URL}/api/v1/progress`;
 const TEST_API = `${API_BASE_URL}/api/v1/tests`;
@@ -9,6 +9,7 @@ export const courseProgressApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: COURSE_PROGRESS_API,
     credentials: "include",
+    prepareHeaders: prepareHeadersWithAuth,
   }),
   endpoints: (builder) => ({
     getCourseProgress: builder.query({
@@ -96,8 +97,9 @@ export const {
 export const studentTestSubmissionsApi = createApi({
   reducerPath: "studentTestSubmissionsApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: "/api/v1/test",
+    baseUrl: `${API_BASE_URL}/api/v1/tests`,
     credentials: "include",
+    prepareHeaders: prepareHeadersWithAuth,
   }),
   endpoints: (builder) => ({
     getStudentTestSubmissions: builder.query({

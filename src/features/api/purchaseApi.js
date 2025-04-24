@@ -8,6 +8,17 @@ export const purchaseApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: COURSE_PURCHASE_API,
     credentials: "include",
+    prepareHeaders: (headers) => {
+      // Get token from localStorage
+      const token = localStorage.getItem("token");
+
+      // If token exists, add it to Authorization header
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+
+      return headers;
+    },
   }),
   endpoints: (builder) => ({
     createCheckoutSession: builder.mutation({

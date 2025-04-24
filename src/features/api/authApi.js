@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { userLoggedIn, userLoggedOut } from "../authSlice";
-import API_BASE_URL from "../../config/api";
+import API_BASE_URL, { prepareHeadersWithAuth } from "../../config/api";
 
 const USER_API = `${API_BASE_URL}/api/v1/user/`;
 
@@ -9,6 +9,7 @@ export const authApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: USER_API,
     credentials: "include",
+    prepareHeaders: prepareHeadersWithAuth,
   }),
   endpoints: (builder) => ({
     registerUser: builder.mutation({
@@ -29,7 +30,33 @@ export const authApi = createApi({
           const result = await queryFulfilled;
           console.log("Login result:", result);
           if (result?.data?.user) {
-            dispatch(userLoggedIn({ user: result.data.user }));
+            // Extract token from cookies or response
+            let token = null;
+
+            // Check if token is directly in the response
+            if (result.data.token) {
+              token = result.data.token;
+            }
+            // Otherwise, attempt to extract from cookie
+            else {
+              // Parse cookies to find the token
+              const cookies = document.cookie.split(";");
+              for (const cookie of cookies) {
+                const [name, value] = cookie.trim().split("=");
+                if (name === "token") {
+                  token = value;
+                  break;
+                }
+              }
+            }
+
+            // Dispatch the login action with user and token
+            dispatch(
+              userLoggedIn({
+                user: result.data.user,
+                token: token,
+              })
+            );
           } else {
             console.error("Login response missing user data:", result);
           }
@@ -62,7 +89,12 @@ export const authApi = createApi({
           const result = await queryFulfilled;
           console.log("Load user result:", result);
           if (result?.data?.user) {
-            dispatch(userLoggedIn({ user: result.data.user }));
+            // Keep the existing token if available
+            dispatch(
+              userLoggedIn({
+                user: result.data.user,
+              })
+            );
           } else {
             console.error("Load user response missing user data:", result);
           }
