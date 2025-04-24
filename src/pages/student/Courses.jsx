@@ -1,11 +1,11 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import React from "react";
 import { Course } from "./Course";
-import { useGetPublishedCourseQuery } from "@/features/api/courseApi";
+import { useGetCoursesQuery } from "@/features/api/courseApi";
 import { Sparkles } from "lucide-react";
 
 const Courses = () => {
-  const { data, isLoading, isError } = useGetPublishedCourseQuery();
+  const { data, isLoading, isError } = useGetCoursesQuery();
 
   if (isError) return <h1>Some error occurred while fetching courses.</h1>;
 
@@ -22,8 +22,7 @@ const Courses = () => {
             Expand Your Knowledge
           </h2>
           <p className="max-w-2xl mx-auto text-xl text-gray-600 dark:text-gray-400">
-            Discover our most popular tests designed to help you
-            succeed
+            Discover our most popular tests designed to help you succeed
           </p>
           <div className="h-1 w-24 bg-gradient-to-r from-indigo-600 to-purple-600 mx-auto mt-6 rounded-full"></div>
         </div>
@@ -34,8 +33,7 @@ const Courses = () => {
             ? Array.from({ length: 8 }).map((_, index) => (
                 <CourseSkeleton key={index} />
               ))
-            : data?.courses &&
-              data.courses.map((course, index) => (
+            : data?.map((course, index) => (
                 <Course key={index} course={course} />
               ))}
         </div>

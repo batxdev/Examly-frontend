@@ -7,23 +7,34 @@ import { Clock, GraduationCap, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Course = ({ course }) => {
+  // Default thumbnail if not provided
+  const defaultThumbnail = "https://placehold.co/600x400?text=No+Image";
+
+  // Check if course exists
+  if (!course) {
+    return null;
+  }
+
   return (
     <Card className="overflow-hidden rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800 shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full">
       <div className="relative">
         <img
-          src={course.courseThumbnail}
-          alt={course.courseTitle}
+          src={course.courseThumbnail || defaultThumbnail}
+          alt={course.courseTitle || "Course"}
           className="w-full h-48 object-cover"
+          onError={(e) => {
+            e.target.src = defaultThumbnail;
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
         <Badge className="absolute top-3 right-3 bg-gradient-to-r from-indigo-600 to-purple-600 border-0 text-white px-2.5 py-1 text-xs font-medium">
-          {course.courseLevel}
+          {course.courseLevel || "All Levels"}
         </Badge>
       </div>
 
       <CardContent className="px-5 py-5 flex flex-col flex-grow">
         <h3 className="font-bold text-lg mb-2 text-gray-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-2">
-          {course.courseTitle}
+          {course.courseTitle || "Untitled Course"}
         </h3>
 
         <div className="mt-2 mb-3 flex items-center gap-4">
@@ -33,7 +44,7 @@ export const Course = ({ course }) => {
           </div>
           <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm">
             <Users className="h-4 w-4 mr-1" />
-            <span>{course.numberOfStudents || 0} students</span>
+            <span>{course.enrolledStudents?.length || 0} students</span>
           </div>
         </div>
 
@@ -49,7 +60,7 @@ export const Course = ({ course }) => {
           </Avatar>
           <div className="ml-2 flex-grow">
             <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {course.creator?.name}
+              {course.creator?.name || "Instructor"}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Instructor
@@ -59,7 +70,7 @@ export const Course = ({ course }) => {
             {course.isFree ? (
               <span className="text-green-600">Free</span>
             ) : (
-              <>₹{course.coursePrice}</>
+              <>₹{course.coursePrice || 0}</>
             )}
           </div>
         </div>

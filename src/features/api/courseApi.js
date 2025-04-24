@@ -17,6 +17,16 @@ export const courseApi = createApi({
         url: "/",
         method: "GET",
       }),
+      transformResponse: (response, meta, arg) => {
+        if (Array.isArray(response)) {
+          return response;
+        }
+        return [];
+      },
+      transformErrorResponse: (response, meta, arg) => {
+        console.error("Error fetching courses:", response);
+        return [];
+      },
       providesTags: ["Courses"],
     }),
     getCoursesWithFilter: builder.query({
@@ -31,6 +41,13 @@ export const courseApi = createApi({
           method: "GET",
         };
       },
+      transformResponse: (response) => {
+        if (Array.isArray(response)) {
+          return response;
+        }
+        return [];
+      },
+      transformErrorResponse: () => [],
       providesTags: ["Courses"],
     }),
     getCourse: builder.query({
@@ -38,6 +55,12 @@ export const courseApi = createApi({
         url: `/${courseId}`,
         method: "GET",
       }),
+      transformResponse: (response) => {
+        if (response?.course) {
+          return response.course;
+        }
+        return null;
+      },
       providesTags: ["Course"],
     }),
     createCourse: builder.mutation({
@@ -67,14 +90,20 @@ export const courseApi = createApi({
     // Lecture Endpoints
     getLectures: builder.query({
       query: (courseId) => ({
-        url: `/${courseId}/lectures`,
+        url: `/${courseId}/lecture`,
         method: "GET",
       }),
+      transformResponse: (response) => {
+        if (response?.lectures) {
+          return response.lectures;
+        }
+        return [];
+      },
       providesTags: (result, error, id) => [{ type: "Lectures", id }],
     }),
     createLecture: builder.mutation({
       query: ({ courseId, formData }) => ({
-        url: `/${courseId}/lectures`,
+        url: `/${courseId}/lecture`,
         method: "POST",
         body: formData,
       }),
@@ -82,21 +111,27 @@ export const courseApi = createApi({
     }),
     getLecture: builder.query({
       query: ({ courseId, lectureId }) => ({
-        url: `/${courseId}/lectures/${lectureId}`,
+        url: `/lecture/${lectureId}`,
         method: "GET",
       }),
+      transformResponse: (response) => {
+        if (response?.lecture) {
+          return response.lecture;
+        }
+        return null;
+      },
     }),
     updateLecture: builder.mutation({
       query: ({ courseId, lectureId, formData }) => ({
-        url: `/${courseId}/lectures/${lectureId}`,
-        method: "PUT",
+        url: `/${courseId}/lecture/${lectureId}`,
+        method: "POST",
         body: formData,
       }),
       invalidatesTags: ["Course", "Courses"],
     }),
     deleteLecture: builder.mutation({
-      query: ({ courseId, lectureId }) => ({
-        url: `/${courseId}/lectures/${lectureId}`,
+      query: ({ lectureId }) => ({
+        url: `/lecture/${lectureId}`,
         method: "DELETE",
       }),
       invalidatesTags: ["Course", "Courses"],
